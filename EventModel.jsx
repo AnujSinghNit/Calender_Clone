@@ -1,4 +1,4 @@
-// frontend/src/EventModal.jsx
+// File: EventModel.jsx
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 
@@ -16,7 +16,7 @@ const EventModal = ({ isOpen, onClose, initialData, onSave, onDelete }) => {
 
   const [error, setError] = useState('');
 
-  // Update form data when initialData changes (for editing)
+  // Update form data when initialData changes 
   useEffect(() => {
     if (isOpen) {
         setFormData({
@@ -34,37 +34,65 @@ const EventModal = ({ isOpen, onClose, initialData, onSave, onDelete }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setError('');
   };
 
-  const handleSubmit = (e) => {
+  // Make handleSubmit async to await onSave (API call) and handle errors
+  const handleSubmit = async (e) => { 
     e.preventDefault();
+
+    // Basic Validation: Check for required fields
     if (!formData.title || !formData.date || !formData.startTime || !formData.endTime) {
       setError('Title, Date, Start Time, and End Time are required.');
       return;
     }
-    if (formData.startTime >= formData.endTime) {
+
+    // Basic Validation: Check time logic
+    const startDateTime = dayjs(`${formData.date} ${formData.startTime}`);
+    const endDateTime = dayjs(`${formData.date} ${formData.endTime}`);
+    if (endDateTime.isBefore(startDateTime) || endDateTime.isSame(startDateTime)) {
         setError('End time must be after start time.');
         return;
     }
-    setError('');
-    onSave(formData);
+    
+    setError(''); 
+
+    // Use try/catch to display API errors in the modal
+    try {
+        await onSave(formData); 
+    } catch (apiError) {
+        setError(apiError.message || 'An unknown error occurred while saving.');
+    }
   };
+
+  const handleDeleteClick = () => {
+    onDelete(formData.id);
+  }
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50 transition-opacity duration-300">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 transform transition-transform duration-300 scale-100">
-        <h2 className="text-xl font-medium text-gray-700 mb-4 flex justify-between items-center">
+    // Modal Overlay
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50" onClick={onClose}>
+      {/* Modal Content */}
+      <div 
+        className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 transform transition-all"
+        onClick={e => e.stopPropagation()} 
+      >
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
           {isEditMode ? 'Edit Event' : 'Create Event'}
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
         </h2>
+        
+        {/* Error Message */}
+        {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <span className="block sm:inline">{error}</span>
+            </div>
+        )}
 
-        {error && <p className="text-red-500 text-sm mb-3 p-2 bg-red-50 rounded">{error}</p>}
-
+        {/* Event Form */}
         <form onSubmit={handleSubmit}>
+          {/* Title Input */}
           <div className="mb-4">
             <input
               type="text"
@@ -72,21 +100,28 @@ const EventModal = ({ isOpen, onClose, initialData, onSave, onDelete }) => {
               placeholder="Add title"
               value={formData.title}
               onChange={handleChange}
-              className="w-full p-2 border-b-2 text-lg focus:border-blue-500 outline-none transition"
+              className="w-full p-2 text-lg font-medium border-b-2 border-gray-300 focus:border-blue-500 outline-none transition"
               required
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4 items-center">
+          {/* Date and Time Inputs */}
+          <div className="mb-4 flex space-x-4 items-center">
+            <label className="text-gray-600 w-16">Date:</label>
             <input type="date" name="date" value={formData.date} onChange={handleChange} className="p-2 border rounded" required />
+          </div>
+          <div className="mb-6 flex space-x-4 items-center">
+            <label className="text-gray-600 w-16">Time:</label>
             <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} className="p-2 border rounded" required />
+            <span>—</span>
             <input type="time" name="endTime" value={formData.endTime} onChange={handleChange} className="p-2 border rounded" required />
           </div>
 
+          {/* Description Textarea */}
           <div className="mb-6">
             <textarea
               name="description"
-              placeholder="Description"
+              placeholder="Description (optional)"
               value={formData.description}
               onChange={handleChange}
               rows="3"
@@ -94,23 +129,24 @@ const EventModal = ({ isOpen, onClose, initialData, onSave, onDelete }) => {
             ></textarea>
           </div>
 
-          <div className="flex justify-between items-center">
+          {/* Action Buttons */}
+          <div className="flex justify-between items-center pt-4 border-t">
             {isEditMode && (
               <button
                 type="button"
-                onClick={() => onDelete(formData.id)}
-                className="text-red-600 hover:bg-red-50 px-4 py-2 rounded transition"
+                onClick={handleDeleteClick}
+                className="text-red-600 hover:bg-red-50 px-4 py-2 rounded transition font-medium"
               >
                 Delete
               </button>
             )}
-            <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2 ml-auto">
                 <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition">
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition font-medium"
                 >
                   {isEditMode ? 'Save' : 'Create'}
                 </button>
